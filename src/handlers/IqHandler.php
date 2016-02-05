@@ -256,26 +256,39 @@ class IqHandler implements Handler
             $users = $this->node->getChild(0)->getChildren();
             foreach ($users as $user) {
                 $jid = $user->getAttribute('jid');
-                $registrationId = deAdjustId($user->getChild('registration')->getData());
-                $identityKey = new  IdentityKey(new DjbECPublicKey($user->getChild('identity')->getData()));
-                $signedPreKeyId = deAdjustId($user->getChild('skey')->getChild('id')->getData());
-                $signedPreKeyPub = new DjbECPublicKey($user->getChild('skey')->getChild('value')->getData());
-                $signedPreKeySig = $user->getChild('skey')->getChild('signature')->getData();
-                $preKeyId = deAdjustId($user->getChild('key')->getChild('id')->getData());
-                $preKeyPublic = new DjbECPublicKey($user->getChild('key')->getChild('value')->getData());
-
-                $preKeyBundle = new PreKeyBundle($registrationId, 1, $preKeyId, $preKeyPublic, $signedPreKeyId, $signedPreKeyPub, $signedPreKeySig, $identityKey);
-                $sessionBuilder = new SessionBuilder($this->parent->getAxolotlStore(), $this->parent->getAxolotlStore(), $this->parent->getAxolotlStore(), $this->parent->getAxolotlStore(), ExtractNumber($jid), 1);
-
-                $sessionBuilder->processPreKeyBundle($preKeyBundle);
-                if (isset($this->parent->getPendingNodes()[ExtractNumber($jid)])) {
-                    foreach ($this->parent->getPendingNodes()[ExtractNumber($jid)] as $pendingNode) {
-                        $msgHandler = new MessageHandler($this->parent, $pendingNode);
-                        $msgHandler->Process();
+                if (
+                    $user->hasChild('registration')
+                    && $user->hasChild('identity')
+                    && $user->hasChild('skey')
+                    && $user->getChild('skey')->hasChild('id')
+                    && $user->getChild('skey')->hasChild('value')
+                    && $user->getChild('skey')->hasChild('signature')
+                    && $user->hasChild('key')
+                    && $user->getChild('key')->hasChild('id')
+                    && $user->getChild('key')->hasChild('value')
+                ) {
+                    $registrationId = deAdjustId($user->getChild('registration')->getData());
+                    $identityKey = new  IdentityKey(new DjbECPublicKey($user->getChild('identity')->getData()));
+                    $signedPreKeyId = deAdjustId($user->getChild('skey')->getChild('id')->getData());
+                    $signedPreKeyPub = new DjbECPublicKey($user->getChild('skey')->getChild('value')->getData());
+                    $signedPreKeySig = $user->getChild('skey')->getChild('signature')->getData();
+                    $preKeyId = deAdjustId($user->getChild('key')->getChild('id')->getData());
+                    $preKeyPublic = new DjbECPublicKey($user->getChild('key')->getChild('value')->getData());
+                    $preKeyBundle = new PreKeyBundle($registrationId, 1, $preKeyId, $preKeyPublic, $signedPreKeyId, $signedPreKeyPub, $signedPreKeySig, $identityKey);
+                    $sessionBuilder = new SessionBuilder($this->parent->getAxolotlStore(), $this->parent->getAxolotlStore(), $this->parent->getAxolotlStore(), $this->parent->getAxolotlStore(), ExtractNumber($jid), 1);
+                    $sessionBuilder->processPreKeyBundle($preKeyBundle);
+                    if (isset($this->parent->getPendingNodes()[ExtractNumber($jid)])) {
+                        foreach ($this->parent->getPendingNodes()[ExtractNumber($jid)] as $pendingNode) {
+                            $msgHandler = new MessageHandler($this->parent, $pendingNode);
+                            $msgHandler->Process();
+                        }
+                        $this->parent->unsetPendingNode($jid);
                     }
+                    $this->parent->sendPendingMessages($jid);
+                } else {
+                    // unset
                     $this->parent->unsetPendingNode($jid);
                 }
-                $this->parent->sendPendingMessages($jid);
             }
         }
     }

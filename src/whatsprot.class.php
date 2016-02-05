@@ -2310,6 +2310,7 @@ class WhatsProt
                     $node->getAttribute('id'),
                     $node->getAttribute('offline'),
                     $node->getAttribute('retry'),
+                    $node->getAttribute('type')
                 ]);
         }
         if ($node->getTag() == 'iq') {
